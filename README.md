@@ -88,6 +88,16 @@ One CSV row per set: `project`, `complete`, old
 3. **Deploy.** Push to GitHub and enable Pages (Settings → Pages → Deploy
    from branch, `main` / root).
 
+## Keeping Supabase awake
+
+Free Supabase projects pause after about 7 days with no activity.
+[`.github/workflows/keep-alive.yml`](.github/workflows/keep-alive.yml)
+reads one row every 3 days to prevent that. It covers scan-code-reader1
+too, since both use the same project. If a run fails, GitHub emails you.
+That usually means the project got paused anyway: resume it in the
+Supabase dashboard. To test it by hand: Actions tab → Keep Supabase
+awake → Run workflow.
+
 ## Files
 
 ```
