@@ -561,7 +561,10 @@ function renderIncomplete() {
     }).join("")}
     <div class="incomplete-foot">
      <span class="muted">Missing: ${esc(missing)}</span>
-     <button class="ghost" data-link-group="${esc(id)}">Link&hellip;</button>
+     <span>
+      ${canContinue(rows) ? `<button class="ghost" data-continue-group="${esc(id)}">Continue</button>` : ""}
+      <button class="ghost" data-link-group="${esc(id)}">Link&hellip;</button>
+     </span>
     </div>
    </div>`;
  }).join("");
@@ -579,7 +582,31 @@ $("unpaired-list").addEventListener("click", async e => {
  }
  const link = e.target.closest("button[data-link-group]");
  if (link) openLinkModal(link.dataset.linkGroup);
+ const cont = e.target.closest("button[data-continue-group]");
+ if (cont) continueSet(cont.dataset.continueGroup);
 });
+
+// A set whose saved scans are the first steps in order (Old QR, or Old QR +
+// New QR) can be picked back up where it stopped -- e.g. after the page was
+// reloaded mid-set. Anything else (say, a New QR with no Old QR) is
+// completed through Link… instead.
+function canContinue(rows) {
+ return rows.every(r => STEPS.findIndex(s => s.key === r.label_version) < rows.length);
+}
+
+function continueSet(groupId) {
+ const rows = groupByCorrelation(historyRows).get(groupId) || [];
+ if (!rows.length || !canContinue(rows)) return;
+ if (setRows.length && !confirm("Drop the set you're scanning now and continue this one instead? Scans already saved from it stay under \"Waiting to be completed\".")) return;
+ discardPreview();
+ if (cameraRunning) stopCamera();
+ setId = groupId;
+ setRows = STEPS.map(s => rowFor(rows, s.key)).filter(Boolean);
+ lastCompletedSet = null;
+ updateProgressUI();
+ renderIncomplete();
+ focusManualInput();
+}
 
 function openLinkModal(groupId) {
  linkTargetId = groupId;

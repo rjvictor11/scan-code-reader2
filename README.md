@@ -70,7 +70,9 @@ part numbers don't trip it.
 
 If a set is left unfinished (the app was closed mid-set, or a scan was
 undone after moving on), it shows in **Waiting to be completed**, with
-what's missing. **Link…** completes it from another incomplete set that
+what's missing. **Continue** picks it back up at the next step, for a set
+that stopped partway (for example, Old QR + New QR saved, then the page
+was reloaded). **Link…** completes it from another incomplete set that
 holds only the missing scans. **Delete** removes one scan permanently.
 **Undo** (8 seconds after each save) removes that scan and asks for it
 again, even if it was the third scan that just completed the set.
