@@ -99,6 +99,7 @@ $("project-select").addEventListener("change", () => {
  // across two projects. Anything already saved from it shows up under
  // "Waiting to be completed" in its own project.
  discardPreview();
+ if (cameraRunning) stopCamera();
  resetSet();
  loadHistory($("search-input").value.trim());
  focusManualInput();
@@ -162,25 +163,31 @@ function showCameraError(err) {
  el.textContent = "Error: " + (err && err.message ? err.message : String(err));
 }
 
-// A square box suits the 2D labels; a 1D barcode needs a wide, short one
-// or its outer bars fall outside the scan area.
 function scanBox(viewfinderWidth, viewfinderHeight) {
- if (currentStep().kind === "1d") {
-  const width = Math.floor(Math.min(viewfinderWidth * 0.9, 380));
-  return { width, height: Math.floor(Math.min(viewfinderHeight * 0.4, 140)) };
- }
  const side = Math.floor(Math.min(viewfinderWidth, viewfinderHeight, 260));
  return { width: side, height: side };
 }
 
+// The 2D labels read fine through html5-qrcode. The 1D step uses
+// BarcodeReader instead (js/barcode-reader.js), which decodes at the
+// camera's full resolution -- html5-qrcode's on-screen-size crop is too
+// coarse for the flag tag's thin Code 39 bars.
+let liveReader = null;
+
 async function launchCamera(cameraId) {
- const scanner = getScanner();
- // Must be visible (real width/height) BEFORE start(): the library measures
- // this element's clientWidth up front to size the <video> it inserts, and
- // a still-hidden container measures as 0 -- which then sticks as the
- // video's inline width forever, even once this element becomes visible.
  $("reader-region").hidden = false;
- await scanner.start(cameraId, { fps: 10, qrbox: scanBox }, onDecoded, () => {});
+ if (currentStep().kind === "1d") {
+  liveReader = await BarcodeReader.startLive($("reader-region"), cameraId, "1d", hit => {
+   stopCamera();
+   showPreview(hit.decodedText, hit.format);
+  });
+ } else {
+  // Must be visible (real width/height) BEFORE start(): the library
+  // measures this element's clientWidth up front to size the <video> it
+  // inserts, and a still-hidden container measures as 0 -- which then
+  // sticks as the video's inline width forever.
+  await getScanner().start(cameraId, { fps: 10, qrbox: scanBox }, onDecoded, () => {});
+ }
  cameraRunning = true;
  $("btn-start-camera").hidden = true;
  $("btn-stop-camera").hidden = false;
@@ -196,16 +203,21 @@ async function startCamera() {
   populateCameraSelect(cameras, preferredId);
   await launchCamera(preferredId);
  } catch (err) {
+  await stopCamera();
   showCameraError(err);
  }
 }
 
 async function stopCamera() {
- if (html5Qrcode && cameraRunning) {
+ if (liveReader) {
+  liveReader.stop();
+  liveReader = null;
+ } else if (html5Qrcode && cameraRunning) {
   try { await html5Qrcode.stop(); } catch (e) {}
   html5Qrcode.clear();
  }
  cameraRunning = false;
+ torchOn = false;
  $("reader-region").hidden = true;
  $("btn-start-camera").hidden = false;
  $("btn-stop-camera").hidden = true;
@@ -215,8 +227,9 @@ async function stopCamera() {
 function updateTorchButton() {
  const btn = $("btn-torch");
  try {
-  const torch = html5Qrcode.getRunningTrackCameraCapabilities().torchFeature();
-  btn.hidden = !torch.isSupported();
+  btn.hidden = liveReader
+   ? !liveReader.torchSupported
+   : !html5Qrcode.getRunningTrackCameraCapabilities().torchFeature().isSupported();
   btn.textContent = torchOn ? "Torch: on" : "Torch: off";
  } catch (e) {
   btn.hidden = true;
@@ -237,9 +250,9 @@ $("btn-stop-camera").addEventListener("click", stopCamera);
 
 $("btn-torch").addEventListener("click", async () => {
  try {
-  const torch = html5Qrcode.getRunningTrackCameraCapabilities().torchFeature();
   torchOn = !torchOn;
-  await torch.apply(torchOn);
+  if (liveReader) await liveReader.setTorch(torchOn);
+  else await html5Qrcode.getRunningTrackCameraCapabilities().torchFeature().apply(torchOn);
   updateTorchButton();
  } catch (e) {}
 });
@@ -257,11 +270,26 @@ $("file-input").addEventListener("change", async e => {
  if (!file) return;
  $("camera-error").hidden = true;
  if (cameraRunning) await stopCamera();
+ const kind = currentStep().kind;
+ $("photo-status").hidden = false;
  try {
-  const result = await getScanner().scanFileV2(file, false);
-  showPreview(result.decodedText, formatOf(result));
+  let hit = null;
+  // html5-qrcode is quick for a 2D label that fills the photo; anything
+  // else gets the slower full-resolution pass over overlapping crops.
+  if (kind === "2d") {
+   try {
+    const result = await getScanner().scanFileV2(file, false);
+    hit = { decodedText: result.decodedText, format: formatOf(result) };
+   } catch (e) {}
+  }
+  if (!hit) hit = await BarcodeReader.decodeImageFile(file, kind);
+  showPreview(hit.decodedText, hit.format);
  } catch (err) {
-  showCameraError(new Error("Couldn't find a recognizable code in that image."));
+  showCameraError(new Error(kind === "1d"
+   ? "Couldn't read a 1D barcode in that photo. Get closer so the barcode fills more of the picture, keep it sharp, and try again."
+   : "Couldn't find a recognizable code in that image."));
+ } finally {
+  $("photo-status").hidden = true;
  }
 });
 
@@ -435,6 +463,7 @@ function showSavedToast(row, completed) {
   }
   lastCompletedSet = null;
   discardPreview();
+  if (cameraRunning) stopCamera(); // its 1D/2D mode was picked for the step we just left
   updateProgressUI();
   loadHistory($("search-input").value.trim());
   focusManualInput();

@@ -3,6 +3,8 @@
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
 <script src="js/supabase-client.js"></script>
 <script src="vendor/html5-qrcode.min.js"></script>
+<script src="vendor/zxing-library.min.js"></script>
+<script src="js/barcode-reader.js"></script>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Triple Label Scanner</title>
 <style>
@@ -58,7 +60,11 @@
  .set-progress .step.done{background:var(--greenbg);color:var(--green);border-color:var(--green)}
  .set-progress .arrow{color:var(--muted)}
 
- #reader-region{width:100%;border-radius:8px;overflow:hidden;background:#000}
+ #reader-region{width:100%;border-radius:8px;overflow:hidden;background:#000;position:relative}
+ .live-video{display:block;width:100%;height:auto}
+ .live-guide{position:absolute;left:50%;top:50%;width:62%;aspect-ratio:1;transform:translate(-50%,-50%);border:2px solid rgba(255,255,255,.85);border-radius:6px;box-shadow:0 0 0 9999px rgba(0,0,0,.35);pointer-events:none}
+ .live-guide.wide{width:92%;height:40%;aspect-ratio:auto}
+ .live-hint{position:absolute;left:0;right:0;bottom:8px;text-align:center;color:#fff;font-size:12px;text-shadow:0 1px 2px #000;pointer-events:none}
  #camera-controls{display:flex;flex-wrap:wrap;gap:8px;margin:10px 0}
  #camera-controls button{flex:1;min-width:120px}
 
@@ -155,6 +161,7 @@
   <label class="file-label">Upload a photo of the label
    <input type="file" id="file-input" accept="image/*">
   </label>
+  <div id="photo-status" class="muted" style="text-align:center;margin:-6px 0 12px" hidden>Reading photo&hellip;</div>
 
   <label>Manual entry</label>
   <div class="manual-row">

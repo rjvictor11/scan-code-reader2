@@ -24,11 +24,29 @@ saved in full, just without the parsed fields.
 The 1D barcode is the supplier serial printed under it (e.g.
 `5UCBMVYY04347`), not the part number, so it's saved as-is in `raw_code`.
 
-The camera tries Data Matrix, QR, Code 128, Code 39, Code 93, ITF, and
-Codabar (`SCAN_FORMATS`). On the 1D step the scan box turns wide and
-short so the whole barcode fits. On Chrome for Android the browser's
-built-in barcode detector is used, which reads 1D codes much better. If
-the camera reads a 2D code on the 1D step (or the other way around),
+**2D steps** use html5-qrcode's camera scanner, as in scan-code-reader1.
+
+**The 1D step** uses its own reader, [`js/barcode-reader.js`](js/barcode-reader.js),
+because html5-qrcode can't read the flag tag's thin Code 39 bars. It
+crops its scan box at on-screen size (about 380px across) and runs the
+decoder with "try harder" off. The new reader:
+
+- asks the camera for 1920×1080 instead of the usual 640×480;
+- decodes the middle band of each frame at full resolution, with "try
+  harder" on and 1D formats only (Code 39, Code 128, Code 93, ITF,
+  Codabar);
+- uses the browser's built-in barcode detector first where there is one
+  (Chrome on Android).
+
+It uses [`@zxing/library`](https://github.com/zxing-js/library) 0.21.3,
+vendored in `vendor/`. Hold the phone so the bars run left to right
+across the wide box.
+
+**Photo upload** retries at full resolution over overlapping crops of the
+picture when the quick pass fails. The quick pass shrinks the photo to
+about 300px wide, which loses small or thin codes.
+
+If the camera reads a 2D code on the 1D step (or the other way around),
 the preview shows a warning. It doesn't block Save.
 
 ## Checks before Save
@@ -107,6 +125,8 @@ awake → Run workflow.
 ```
 index.html                       the whole UI
 js/app.js                        scanning, parsing, checks, saving, set logic
+js/barcode-reader.js             full-resolution reader: 1D camera step + photo fallback
+vendor/zxing-library.min.js      ZXing decoder used by barcode-reader.js (Apache-2.0)
 js/supabase-client.js            Supabase URL/anon key + client
 js/theme.js                      dark/light toggle
 vendor/html5-qrcode.min.js       scanning library (Apache-2.0)
