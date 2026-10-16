@@ -59,11 +59,15 @@ again, even if it was the third scan that just completed the set.
 
 ## Projects
 
-Same as scan-code-reader1: the `PROJECTS` array in `js/app.js` controls
-the dropdown (currently `WS`, `DT`). Every code must already exist in the
-shared `projects` table. `WS`, `DT`, `WL`, `JL`, `JT`, and `WD` are seeded
-there. The duplicate check ignores the project selection; the history and
-**Download report** follow it; **Download all** exports every project.
+This version is **WS only**. With a single project, the Project selector
+and **Download all** are hidden, and every scan saves under `WS`.
+
+To add another project later, add its code to the `PROJECTS` array in
+`js/app.js` and the `<option>` list in `index.html`. The selector and
+**Download all** reappear by themselves once there are two or more. The
+code must already exist in the shared `projects` table: `WS`, `DT`, `WL`,
+`JL`, `JT`, and `WD` are seeded there, so any of those works with no
+Supabase change.
 
 ## Handheld scanners
 

@@ -45,8 +45,9 @@ const PROJECT_KEY = "scan_reader3_project";
 // not read from the database at runtime. Every code must already exist as
 // a row in the shared `projects` table (scan-code-reader1's
 // migrations/004_projects_table.sql seeded WS, DT, WL, JL, JT, WD), which
-// triple_scans.project references.
-const PROJECTS = ["WS", "DT"];
+// triple_scans.project references. With only one project listed, the
+// selector is hidden.
+const PROJECTS = ["WS"];
 let currentProject = PROJECTS.includes(localStorage.getItem(PROJECT_KEY)) ? localStorage.getItem(PROJECT_KEY) : "WS";
 
 let setId = null;   // correlation_id of the set being scanned right now
@@ -87,6 +88,8 @@ function formatTimestamp(iso) {
 
 $("project-select").innerHTML = PROJECTS.map(c => `<option value="${esc(c)}">${esc(c)}</option>`).join("");
 $("project-select").value = currentProject;
+$("project-bar").hidden = PROJECTS.length < 2;
+$("btn-download-report-all").hidden = PROJECTS.length < 2; // same file as "Download report" with one project
 
 $("project-select").addEventListener("change", () => {
  currentProject = $("project-select").value;
